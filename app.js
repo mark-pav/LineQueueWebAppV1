@@ -4,29 +4,51 @@ const express = require('express');
 var bodyParser = require('body-parser');
 let ejs = require('ejs');
 const { MongoClient } = require("mongodb");
+require('dotenv').config();
 
-
-const uri = "mongodb+srv://markuser:<password>@cluster0.igaswin.mongodb.net/?retryWrites=true&w=majority";
+//mongoBD stuff start
+const uri = "mongodb+srv://markuser:" + process.env.dbPASSWORD + "@cluster0.igaswin.mongodb.net/?retryWrites=true&w=majority";
 const client = new MongoClient(uri);
 
 const database = client.db('LineQueueBD1');
 const currentLine = database.collection('currentLine');
+//mongoBD stuff extended
+
+
+//Date
+var todayDate;
+var todayTime;
 
 
 
 const app = express();
 
-let line = [];
+let customerLine = [];
+let adminLine = [];
+
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 
 
 app.get('/', async function(req, res){
-  const cursor = currentLine.find();
-  line = await cursor.toArray();
+  const cursor = currentLine.find({ workStatus: "Checked in" });
+  customerLine = await cursor.toArray();
+  console.log(customerLine.length);
+  res.render('home', {currentLine: customerLine});
+});
 
-  res.render('home', {currentLine: line});
+app.get("/dashboard", (req, res) => {
+  res.render('password');
+});
+
+app.get("/passwordCheck", (req, res) => {
+  console.log(req.query.password + " " + process.env.PASSWORD );
+  if(req.query.password == process.env.PASSWORD) {
+    res.render('adminDashboard', {currentLine: customerLine});
+  } else {
+    res.redirect("/");
+  }
 });
 
 app.get('/add', function(req, res){
@@ -34,19 +56,21 @@ app.get('/add', function(req, res){
 });
 
 app.post('/add', function(req, res){
-
+  getFreshDate();
   //getting values from form at /add to a local variable
   const lineInputRequestFromUser = {
+    timeCheckedIn: todayTime,
     phoneNumber: req.body.phoneNumberInput,
     companyName: req.body.companyNameInput,
     description: req.body.descriptionInput,
-    equipment: req.body.equipmentInput
+    equipment: req.body.equipmentInput,
+    workStatus: "Checked in"
   };
-  //pushing it to the local variable line array for displaying on the home page (will change to retreive from db later)
-  line.push(lineInputRequestFromUser);
+
+
 
   async function insertToDB(userInput) {
-
+      // test later if these lines moved to top of the file won't create any problems
       // const database = client.db('LineQueueBD1');
       // const currentLine = database.collection('currentLine');
 
@@ -73,7 +97,24 @@ app.post('/add', function(req, res){
 
 });
 
+function getFreshDate(){
+  var today = new Date();
+  var dd = String(today.getDate()).padStart(2, '0');
+  var mm = String(today.getMonth() + 1).padStart(2, '0'); //January is 0!
+  var yyyy = today.getFullYear();
+  var ampm = "am";
+  var hours = today.getHours();
+  if(hours>12){
+    hours-=12;
+    ampm = "pm";
+  }else{
+    ampm = "am";
+  }
+  var minutes = String(today.getMinutes()).padStart(2, '0');
 
+  todayDate = mm + '/' + dd + '/' + yyyy;
+  todayTime = hours + ":" + minutes + " " + ampm;
+}
 
 app.listen(3000, () => {
   console.log(`App listening on port 3000`);
