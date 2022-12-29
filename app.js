@@ -5,6 +5,7 @@ var bodyParser = require('body-parser');
 let ejs = require('ejs');
 const { MongoClient } = require("mongodb");
 require('dotenv').config();
+var mongoose = require('mongoose');
 
 //mongoBD stuff start
 const uri = "mongodb+srv://markuser:" + process.env.dbPASSWORD + "@cluster0.igaswin.mongodb.net/?retryWrites=true&w=majority";
@@ -27,6 +28,7 @@ let customerLine = [];
 let adminLine = [];
 
 
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 
@@ -34,7 +36,6 @@ app.set('view engine', 'ejs');
 app.get('/', async function(req, res){
   const cursor = currentLine.find({ workStatus: "Checked in" });
   customerLine = await cursor.toArray();
-  console.log(customerLine.length);
   res.render('home', {currentLine: customerLine});
 });
 
@@ -42,14 +43,55 @@ app.get("/dashboard", (req, res) => {
   res.render('password');
 });
 
-app.get("/passwordCheck", (req, res) => {
-  console.log(req.query.password + " " + process.env.PASSWORD );
+app.get("/passwordCheck", async(req, res) => {
+
   if(req.query.password == process.env.PASSWORD) {
-    res.render('adminDashboard', {currentLine: customerLine});
+    const cursor = currentLine.find({});
+    adminLine = await cursor.toArray();
+    res.render('adminDashboard', {currentLine: adminLine});
   } else {
     res.redirect("/");
   }
 });
+
+app.post('/adminDashboard', async function(req, res){
+  let workStatusForUpdate = req.body.statusSelected;
+  let idForUpdateString = req.body.id;
+  var objectId = mongoose.Types.ObjectId(idForUpdateString);
+
+  async function update(id, workstatus) {
+    // create a filter for a movie to update
+    const filter = { _id: id };
+    // this option instructs the method to create a document if no documents match the filter
+    //const options = { upsert: false };
+    // create a document that sets the plot of the movie
+    const updateDoc = {
+      $set: {
+        workStatus: workstatus
+      },
+    };
+    const result = await currentLine.updateOne(filter, updateDoc, function(error, result){
+      if(error){
+        console.log(error);
+        alert("Looks like something went wrong while updating you to the line. Please, try again.");
+      }
+      if(result){
+        console.log(
+          `${result.matchedCount} document(s) matched the filter, updated ${result.modifiedCount} document(s)`,
+        );
+
+        res.redirect("/passwordCheck?password=" + process.env.PASSWORD);
+      }
+    });
+
+
+  }
+  update(objectId, workStatusForUpdate);
+
+
+});
+
+
 
 app.get('/add', function(req, res){
   res.render('add');
@@ -96,6 +138,11 @@ app.post('/add', function(req, res){
   insertToDB(lineInputRequestFromUser);
 
 });
+
+async function getCurrentAdminCustomerList(){
+  const cursor = currentLine.find({});
+  adminLine = await cursor.toArray();
+}
 
 function getFreshDate(){
   var today = new Date();
