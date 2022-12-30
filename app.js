@@ -91,7 +91,32 @@ app.post('/adminDashboard', async function(req, res){
 
 });
 
+app.post('/delete', async function(req, res){
+  let idForUpdateString = req.body.id;
+  var objectId = mongoose.Types.ObjectId(idForUpdateString);
 
+  async function deleteLineEntry(id) {
+    // create a filter for a movie to update
+    const filter = { _id: id };
+    const result = await currentLine.deleteOne(filter, function(error, result){
+      if(error){
+        console.log(error);
+        alert("Looks like something went wrong while deleting this line entry. Please, try again.");
+      }
+      if(result){
+        console.log(
+          `${result.matchedCount} document(s) matched the filter, deleted ${result.modifiedCount} document(s)`,
+        );
+
+        res.redirect("/passwordCheck?password=" + process.env.PASSWORD);
+      }
+    });
+
+
+  }
+  deleteLineEntry(objectId);
+
+});
 
 app.get('/add', function(req, res){
   res.render('add');
@@ -106,15 +131,12 @@ app.post('/add', function(req, res){
     companyName: req.body.companyNameInput,
     description: req.body.descriptionInput,
     equipment: req.body.equipmentInput,
-    workStatus: "Checked in"
+    workStatus: "Pending"
   };
 
 
 
   async function insertToDB(userInput) {
-      // test later if these lines moved to top of the file won't create any problems
-      // const database = client.db('LineQueueBD1');
-      // const currentLine = database.collection('currentLine');
 
       const result = await currentLine.insertOne(userInput, function(error, result){
         if(error){
@@ -130,8 +152,45 @@ app.post('/add', function(req, res){
       });
 
 
-      // Ensures that the client will close when you finish/error
-      //client.close();
+  }
+
+  insertToDB(lineInputRequestFromUser);
+
+});
+
+app.get('/addAdmin', function(req, res){
+  res.render('addAdmin');
+});
+
+app.post('/addAdmin', function(req, res){
+  getFreshDate();
+  //getting values from form at /add to a local variable
+  const lineInputRequestFromUser = {
+    timeCheckedIn: todayTime,
+    phoneNumber: req.body.phoneNumberInput,
+    companyName: req.body.companyNameInput,
+    description: req.body.descriptionInput,
+    equipment: req.body.equipmentInput,
+    workStatus: req.body.workStatusInput
+  };
+
+
+
+  async function insertToDB(userInput) {
+
+      const result = await currentLine.insertOne(userInput, function(error, result){
+        if(error){
+          console.log(error);
+          alert("Looks like something went wrong while adding you to the line. Please, try again.");
+        }
+        if(result){
+          console.log(
+           `A document was inserted with the _id: ${result.insertedId}`
+          );
+            res.redirect("/passwordCheck?password=" + process.env.PASSWORD);
+        }
+      });
+
 
   }
 
