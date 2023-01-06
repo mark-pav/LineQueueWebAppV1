@@ -7,9 +7,15 @@ const { MongoClient } = require("mongodb");
 require('dotenv').config();
 var mongoose = require('mongoose');
 
+const app = express();
+
+app.use(bodyParser.urlencoded({ extended: true }));
+app.set('view engine', 'ejs');
+
 //mongoBD stuff start
 const uri = "mongodb+srv://markuser:" + process.env.dbPASSWORD + "@cluster0.igaswin.mongodb.net/?retryWrites=true&w=majority";
 const client = new MongoClient(uri);
+
 
 const database = client.db('LineQueueBD1');
 const currentLine = database.collection('currentLine');
@@ -22,38 +28,45 @@ var todayTime;
 
 
 
-const app = express();
+
 
 let customerLine = [];
 let adminLine = [];
 
 
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.set('view engine', 'ejs');
+
 
 
 app.get('/', async function(req, res){
-  const cursor = currentLine.find({ workStatus: "Checked in" });
+  getFreshDate();
+  const cursor = currentLine.find({ workStatus: "Checked in", dateCheckedIn: todayDate });
   customerLine = await cursor.toArray();
-  res.render('home', {currentLine: customerLine});
+
+  res.render('home', {currentLine: customerLine, date: todayDate});
 });
 
 app.get("/dashboard", (req, res) => {
   res.render('password');
 });
 
+//adminDashboard
 app.get("/passwordCheck", async(req, res) => {
 
   if(req.query.password == process.env.PASSWORD) {
-    const cursor = currentLine.find({});
+    getFreshDate();
+    const cursor = currentLine.find({dateCheckedIn: todayDate});
     adminLine = await cursor.toArray();
-    res.render('adminDashboard', {currentLine: adminLine});
+
+    res.render('adminDashboard', {currentLine: adminLine, date: todayDate});
+
+
   } else {
     res.redirect("/");
   }
 });
 
+//update work status
 app.post('/adminDashboard', async function(req, res){
   let workStatusForUpdate = req.body.statusSelected;
   let idForUpdateString = req.body.id;
@@ -126,6 +139,7 @@ app.post('/add', function(req, res){
   getFreshDate();
   //getting values from form at /add to a local variable
   const lineInputRequestFromUser = {
+    dateCheckedIn: todayDate,
     timeCheckedIn: todayTime,
     phoneNumber: req.body.phoneNumberInput,
     companyName: req.body.companyNameInput,
@@ -166,6 +180,7 @@ app.post('/addAdmin', function(req, res){
   getFreshDate();
   //getting values from form at /add to a local variable
   const lineInputRequestFromUser = {
+    dateCheckedIn: todayDate,
     timeCheckedIn: todayTime,
     phoneNumber: req.body.phoneNumberInput,
     companyName: req.body.companyNameInput,
